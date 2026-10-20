@@ -1,0 +1,3 @@
+# Install PyTorch separately for your Pi's 64-bit Python version, then install:
+numpy
+opencv-python-headless

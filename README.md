@@ -138,13 +138,59 @@ bash run_online.sh
 
 ## Raspberry Pi 4 (CPU-only deployment)
 
-Use `pi_inference.py` for a USB camera or video file.  It does not require CUDA
-and loads both regular and DataParallel (`module.`-prefixed) checkpoints.  Train
-or fine-tune the model on a desktop/GPU first; the values passed below **must
-match the architecture used to create the checkpoint**.
+The Pi deployment is a **classifier-only** architecture. It is designed for one
+available checkpoint and does not require CUDA or a second computer at runtime:
 
-On Raspberry Pi OS 64-bit, install an ARM64 build of Python, PyTorch, NumPy and
-OpenCV, then run a lightweight model such as MobileNetV2 or ShuffleNetV2:
+```
+USB / Pi Camera  ->  OpenCV capture  ->  8-frame RGB buffer  ->  3D CNN on CPU
+                                                                  |
+                                                                  v
+                                                        class + confidence output
+```
+
+The repository contains the model definitions, not trained model weights. Place
+a trained `.pth` checkpoint in `models/` (or another location) before running.
+The model settings must exactly match the checkpoint. Existing ResNeXt-101
+weights will run but are generally too slow for real-time use on Pi 4; a trained
+MobileNetV2 or ShuffleNetV2 width `0.5` model is the intended Pi configuration.
+
+If you downloaded the README's **Pretrained RGB detector + classifier models**
+archive, use its `egogesture_resnext_101_RGB_32.pth` classifier with the exact
+settings in `deploy/egogesture-rgb-pretrained.env.example`. It will load in the
+Pi runner, but it is a ResNeXt-101 / 32-frame model and is expected to be slow
+on a Pi 4. The companion `egogesture_resnetl_10_RGB_8.pth` is the detector; the
+Pi runner deliberately uses the classifier alone because only one model is
+needed for the simple camera architecture.
+
+### Hardware
+
+* Raspberry Pi 4 (64-bit Raspberry Pi OS; 4 GB RAM minimum, 8 GB preferred)
+* Official USB-C supply and active cooling
+* USB webcam or a configured Pi Camera
+* MicroSD card or SSD with at least 8 GB free
+
+### Install and run
+
+On the Pi, clone the repository, create a virtual environment, install an ARM64
+PyTorch build compatible with its Python version, then install the remaining
+dependencies:
+
+```bash
+sudo apt update
+sudo apt install -y git python3-venv libopenblas-dev
+git clone https://github.com/YOUR-USER/YOUR-REPO.git /opt/gesture-recognition
+cd /opt/gesture-recognition
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install torch
+pip install -r requirements-pi.txt
+mkdir -p models
+```
+
+Use `pi_inference.py` for a USB camera or video file. It loads both regular and
+DataParallel (`module.`-prefixed) checkpoints. A lightweight checkpoint can run
+with this command:
 
 ```bash
 python3 pi_inference.py --checkpoint /home/pi/models/gesture.pth --source 0 \
@@ -158,6 +204,22 @@ open a preview window. The script prints a prediction only after it has received
 the requested number of frames. It is intentionally CPU-only, so do not use the
 old `online_test_video.py` for Raspberry Pi deployment: that script calls CUDA
 unconditionally.
+
+### Start automatically on boot
+
+Configure the supplied service once the direct command works. Copy the example
+configuration, update every architecture value to match the checkpoint, and
+enable the service:
+
+```bash
+sudo cp deploy/gesture-recognition.env.example /etc/gesture-recognition.env
+sudo nano /etc/gesture-recognition.env
+chmod +x deploy/run-pi.sh
+sudo cp deploy/gesture-recognition.service.example /etc/systemd/system/gesture-recognition.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now gesture-recognition
+sudo journalctl -u gesture-recognition -f
+```
 
 ## Citation
 
@@ -187,3 +249,5 @@ Please cite the following articles if you use this code or pre-trained models:
 
 ## Acknowledgement
 We thank Kensho Hara for releasing his [codebase](https://github.com/kenshohara/3D-ResNets-PyTorch), which we build our work on top.
+#   v i s o n h a n d  
+ 

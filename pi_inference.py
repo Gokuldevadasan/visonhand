@@ -60,7 +60,13 @@ def load_checkpoint(model, checkpoint_path):
     path = Path(checkpoint_path)
     if not path.is_file():
         raise FileNotFoundError('Checkpoint not found: {}'.format(path))
-    checkpoint = torch.load(str(path), map_location='cpu')
+    # The original project checkpoints contain training metadata that PyTorch
+    # 2.6+ does not allow under its new weights_only default. Only load a file
+    # obtained from this project's official pretrained download or one you trust.
+    try:
+        checkpoint = torch.load(str(path), map_location='cpu', weights_only=False)
+    except TypeError:  # PyTorch versions before the weights_only argument
+        checkpoint = torch.load(str(path), map_location='cpu')
     state_dict = checkpoint.get('state_dict', checkpoint)
     # Training used DataParallel, whose keys begin with "module.".  Pi models do not.
     state_dict = {key.removeprefix('module.'): value for key, value in state_dict.items()}

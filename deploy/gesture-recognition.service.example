@@ -1,0 +1,16 @@
+[Unit]
+Description=Raspberry Pi Gesture Recognition
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+EnvironmentFile=/etc/gesture-recognition.env
+WorkingDirectory=/opt/gesture-recognition
+ExecStart=/opt/gesture-recognition/deploy/run-pi.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
